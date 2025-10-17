@@ -1,25 +1,25 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
-import { MemberService } from '../../../core/services/member-service';
 import { ActivatedRoute, NavigationEnd, Router, RouterLink, RouterLinkActive, RouterOutlet } from '@angular/router';
-import { AsyncPipe } from '@angular/common';
 import { Member } from '../../../types/member';
-import { filter, Observable } from 'rxjs';
+import { filter } from 'rxjs';
+import { AgePipe } from '../../../core/pipes/age-pipe';
 
 @Component({
   selector: 'app-member-detailed',
-  imports: [AsyncPipe, RouterLink, RouterLinkActive, RouterOutlet],
+  imports: [RouterLink, RouterLinkActive, RouterOutlet, AgePipe],
   templateUrl: './member-detailed.html',
   styleUrl: './member-detailed.css'
 })
 export class MemberDetailed implements OnInit {
-  private memberService = inject(MemberService);
   private route = inject(ActivatedRoute);
   private router = inject(Router);
-  protected member$?: Observable<Member>;
+  protected member = signal<Member | undefined>(undefined);
   protected title = signal('Profile');
 
-  ngOnInit(): void {
-    this.member$ = this.loadMember();
+  ngOnInit(): void {    
+    this.route.data.subscribe({
+      next: data => this.member.set(data['member']),
+    });
     this.title.set(this.route.firstChild?.snapshot.title || 'Profile');
 
     this.router.events.pipe(
@@ -29,11 +29,5 @@ export class MemberDetailed implements OnInit {
         this.title.set(this.route.firstChild?.snapshot.title || 'Profile');
       }
     });
-  }
-
-  loadMember() {
-    const id = this.route.snapshot.paramMap.get('id');
-    if (!id)  return;    
-    return  this.memberService.getMember(id);    
   }
 }
