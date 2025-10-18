@@ -10,3 +10,10 @@ export type Member = {
   city: string;
   country: string;
 }
+
+export type EditableMember ={
+  displayName: string;
+  description?: string;
+  city: string;
+  country: string;
+}
