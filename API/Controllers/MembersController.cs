@@ -130,6 +130,37 @@ namespace API.Controllers
 
             return BadRequest("Problem setting main photo");
         }
+
+        [HttpDelete("delete-photo/{photoId}")]
+        public async Task<ActionResult> DeletePhoto(int photoId)
+        {
+            var memberId = User.GetUserId();
+            var member = await memberRepository.GetMemberForUpdateAsync(memberId);
+            if (member == null) return NotFound("Member not found");
+
+            var photo = member.Photos.SingleOrDefault(p => p.Id == photoId);
+            if (photo == null) return NotFound("Photo not found");
+
+            if (member.ImageUrl == photo.Url)
+            {
+                return BadRequest("You cannot delete your main photo");
+            }
+
+            if (photo.PublicId != null)
+            {
+                var result = await photoService.DeletePhotoAsync(photo.PublicId);
+                if (result.Error != null) return BadRequest(result.Error.Message);
+            }
+
+            member.Photos.Remove(photo);
+
+            if (await memberRepository.SaveAllAsync())
+            {
+                return Ok();
+            }
+
+            return BadRequest("Problem deleting the photo");
+        }
     }
 
 
