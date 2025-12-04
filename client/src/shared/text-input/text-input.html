@@ -2,12 +2,28 @@
     <span>{{label()}}</span>
     <input class="input w-full" 
         [type]="type()"
+        [max]="maxDate()"
         [formControl]="control" 
         [placeholder]="label()" 
-        [class.input-error]="control.invalid && (control.touched || control.dirty)"
-        [class.input-success]="control.valid && (control.touched || control.dirty)"/>
-    @if (control.hasError('required') && control.touched ) {
-      <div class="validator-hint text-error text-xs">This field is required</div>
-    }
+        [class.input-error]="control.invalid && control.touched"
+        [class.input-success]="control.valid && control.touched"/>    
 
+    @if (control.hasError('required') && control.touched ) {
+      <div class="validator-hint text-error text-xs visible">{{label()}} is required</div>
+    }
+    @if (control.hasError('email') && control.touched ) {
+      <div class="validator-hint text-error text-xs visible">Invalid email address</div>
+    }
+    @if (control.hasError('minlength') && control.touched ) {
+      <div class="validator-hint text-error text-xs visible">
+        {{label()}} must be at least {{control.getError('minlength').requiredLength}} characters</div>
+    }
+    @if (control.hasError('maxlength') && control.touched ) {
+      <div class="validator-hint text-error text-xs visible">
+        {{label()}} must be at most {{control.getError('maxlength').requiredLength}} characters</div>
+    }
+    @if (control.hasError('passwordMismatch') && control.touched ) {
+      <div class="validator-hint text-error text-xs visible">Passwords do not match</div>
+    }
 </label>
+

@@ -1,38 +1,41 @@
-import { Component, inject, OnInit, output } from '@angular/core';
-import {  AbstractControl, FormControl, FormGroup, ReactiveFormsModule, ValidationErrors, ValidatorFn, Validators } from '@angular/forms';
+import { Component, inject, OnInit, output, signal } from '@angular/core';
+import {  AbstractControl, FormBuilder, FormGroup, ReactiveFormsModule, ValidationErrors, ValidatorFn, Validators } from '@angular/forms';
 import { RegisterCreds } from '../../../types/user';
 import { AccountService } from '../../../core/services/account-service';
-import { JsonPipe } from '@angular/common';
 import { TextInput } from '../../../shared/text-input/text-input';
+import { Router } from '@angular/router';
 
 @Component({
   selector: 'app-register',
-  imports: [ReactiveFormsModule, JsonPipe, TextInput],
+  imports: [ReactiveFormsModule, TextInput],
   templateUrl: './register.html',
   styleUrl: './register.css'
 })
 export class Register implements OnInit {
   private accountService = inject(AccountService);
+  private router = inject(Router);
+  private formBuilder = inject(FormBuilder).nonNullable;
   cancelRegister = output<boolean>();
   protected creds = {} as RegisterCreds;
-  protected registerForm: FormGroup = new FormGroup({});
+  protected currentStep = signal(1);
+  protected credentialsForm = this.formBuilder.group({
+    email: ['', [Validators.required, Validators.email]],
+    displayName: ['', [Validators.required]],
+    password: ['', [Validators.required, Validators.minLength(4), Validators.maxLength(10)]],
+    confirmPassword: ['', [Validators.required, this.matchValues('password')]],
+  });
+  protected profileForm = this.formBuilder.group({
+    gender: ['male', [Validators.required]],
+    dateOfBirth: ['', [Validators.required]],
+    city: ['', [Validators.required]],
+    country: ['', [Validators.required]],
+  });
+  protected validationErrors = signal<string[]>([]);
 
   ngOnInit(): void {
-    this.initializeForm();
-  }
-
-  initializeForm() {
-    this.registerForm = new FormGroup({
-      email: new FormControl('', [Validators.required, Validators.email]),
-      displayName: new FormControl('', [Validators.required]),
-      password: new FormControl('', 
-        [Validators.required, Validators.minLength(4), Validators.maxLength(10)]),
-      confirmPassword: new FormControl('', [Validators.required, this.matchValues('password')]),
-    });
-
-    this.registerForm.controls['password'].valueChanges.subscribe(() => {
-      this.registerForm.controls['confirmPassword'].updateValueAndValidity();
-    });
+    this.credentialsForm.get('password')!.valueChanges.subscribe(() =>
+      this.credentialsForm.get('confirmPassword')!.updateValueAndValidity()
+    );
   }
 
   matchValues(matchTo: string): ValidatorFn {
@@ -43,16 +46,39 @@ export class Register implements OnInit {
     }
   }
 
+  nextStep() {
+    if (this.credentialsForm.valid) {
+      this.currentStep.update(prevStep => prevStep + 1);
+    }
+  }
+
+  previousStep() {    
+    this.currentStep.update(privStep => privStep - 1);
+  }
+
+  getMaxDate() {
+    const today = new Date();
+    today.setFullYear(today.getFullYear() - 18);
+    return today.toISOString().split('T')[0];
+  }
+
   register() {
-    console.log(this.registerForm.value);
-    // console.log("registering", this.creds);
-    // this.accountService.register(this.creds).subscribe({
-    //   next: response => {
-    //     console.log(response);
-    //     this.cancel();
-    //   },
-    //   error: error => console.log(error)
-    // });
+    if (this.credentialsForm.valid && this.profileForm.valid) {
+      const formData = {
+        ...this.credentialsForm.getRawValue(),
+        ...this.profileForm.getRawValue()
+      }
+      this.accountService.register(formData).subscribe({
+        next: () => {
+          this.router.navigateByUrl('/members');
+      },
+      error: error => {
+        console.log(error);
+        this.validationErrors.set(error);
+      }
+    });
+    }
+    
   }
 
   cancel() {
