@@ -17,7 +17,10 @@ export class MemberList implements OnInit {
   @ViewChild('filterModal') modal!: FilterModal;
   private memberService = inject(MemberService);
   protected paginatedMembers = signal<PaginatedResult<Member> | null>(null);
+  private defaultParams = new MemberParams();
   protected memberParams = new MemberParams();
+  private updatedParams = new MemberParams();
+  protected filterSummary = signal('No Filters Applied');
 
   ngOnInit(): void {
     this.loadMembers();
@@ -45,12 +48,31 @@ export class MemberList implements OnInit {
   }
 
   onFilterSubmit(params: MemberParams){
-    this.memberParams = params;
+    this.memberParams = {... params};
+    this.updatedParams = {... params};
+    this.updateFilterSummary();
     this.loadMembers();
   }
 
   resetFilters(){
     this.memberParams = new MemberParams();
+    this.updatedParams = new MemberParams();
+    this.updateFilterSummary();
     this.loadMembers();
+  }
+
+  private updateFilterSummary(): void {
+    const defaults = new MemberParams();
+    const filters: string[] = [];
+
+    if (this.updatedParams.gender) filters.push(`${this.updatedParams.gender}s`);
+    if (this.updatedParams.minAge !== defaults.minAge || this.updatedParams.maxAge !== defaults.maxAge) {
+      filters.push(`Ages: ${this.updatedParams.minAge}-${this.updatedParams.maxAge}`);
+    }
+    if (this.updatedParams.orderBy !== defaults.orderBy) {
+      filters.push(`Order By: ${this.updatedParams.orderBy}`);
+    }
+
+    this.filterSummary.set(filters.length ? filters.join(', ') : 'No Filters Applied');
   }
 }

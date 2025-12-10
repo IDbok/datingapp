@@ -23,6 +23,7 @@ export class MemberService {
     params = params.append('pageSize', memberParams.pageSize.toString());
     params = params.append('minAge', memberParams.minAge.toString());
     params = params.append('maxAge', memberParams.maxAge.toString());
+    params = params.append('orderBy', memberParams.orderBy);
     if (memberParams.gender) {
       params = params.append('gender', memberParams.gender);
     }
