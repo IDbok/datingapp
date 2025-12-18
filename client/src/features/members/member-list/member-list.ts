@@ -17,10 +17,18 @@ export class MemberList implements OnInit {
   @ViewChild('filterModal') modal!: FilterModal;
   private memberService = inject(MemberService);
   protected paginatedMembers = signal<PaginatedResult<Member> | null>(null);
-  private defaultParams = new MemberParams();
   protected memberParams = new MemberParams();
   private updatedParams = new MemberParams();
   protected filterSummary = signal('No Filters Applied');
+
+  constructor() {
+    const savedFilters = localStorage.getItem('filters');
+    if (savedFilters) {
+      this.memberParams = { ...JSON.parse(savedFilters) };
+      this.updatedParams = { ...JSON.parse(savedFilters) };
+      this.updateFilterSummary();   
+    } 
+  }
 
   ngOnInit(): void {
     this.loadMembers();
@@ -57,6 +65,11 @@ export class MemberList implements OnInit {
   resetFilters(){
     this.memberParams = new MemberParams();
     this.updatedParams = new MemberParams();
+
+    localStorage.removeItem('filters');
+
+    this.modal.refreshFilters();
+
     this.updateFilterSummary();
     this.loadMembers();
   }

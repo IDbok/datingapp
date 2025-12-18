@@ -14,6 +14,10 @@ export class FilterModal {
   submitData = output<MemberParams>();
   memberParams: MemberParams = new MemberParams();
 
+  constructor() {
+    this.refreshFilters();
+  }
+
   open(){
     this.modalRef.nativeElement.showModal();
   }
@@ -26,6 +30,16 @@ export class FilterModal {
   submit(){
     this.submitData.emit(this.memberParams);
     this.close();
+  }
+
+  public refreshFilters(){
+    const savedFilters = localStorage.getItem('filters');
+    if (savedFilters) {
+      this.memberParams = JSON.parse(savedFilters);     
+    }
+    else{
+      this.memberParams = new MemberParams();
+    }
   }
 
   onMinAgeChange(){
