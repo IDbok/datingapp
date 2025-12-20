@@ -8,6 +8,18 @@ const cache = new Map<string, HttpEvent<unknown>>();
 export const loadingInterceptor: HttpInterceptorFn = (req, next) => {
   const busyService = inject(BusyService);
 
+  const invalidateCache = (urlPattern: string) => {
+    for (const key of cache.keys()) {
+      if (key.includes(urlPattern)) {
+        cache.delete(key);
+      }
+    }
+  };
+
+  if (req.method.includes('POST') && req.url.includes('/likes')) {
+    invalidateCache('/likes');
+  }
+
   if (req.method === 'GET') {
     const cachedResponse = cache.get(req.urlWithParams);
     if (cachedResponse) {
