@@ -3,6 +3,7 @@ using API.DTOs;
 using API.Entities;
 using API.Extensions;
 using API.Interfaces;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using System.Security.Cryptography;
@@ -10,23 +11,19 @@ using System.Text;
 
 namespace API.Controllers;
 
-public class AccountController(AppDbContext context, ITokenService tokenService) : BaseApiController
+public class AccountController(UserManager<AppUser> userManager, ITokenService tokenService) : BaseApiController
 {
 
     [HttpPost("register")]
     public async Task<ActionResult<UserDto>> Register(RegisterDto registerDto)
     {
         var email = registerDto.Email.ToLower();
-        if (await EmailExists(email)) return BadRequest("Email is already in use");
-
-        using var hmac = new HMACSHA512();
         
         var user = new AppUser
         {
             DisplayName = registerDto.DisplayName,
             Email = email,
-            PasswordHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(registerDto.Password)),
-            PasswordSalt = hmac.Key,
+            UserName = email,
             Member = new Member
             {
                 DisplayName = registerDto.DisplayName,
@@ -37,33 +34,78 @@ public class AccountController(AppDbContext context, ITokenService tokenService)
             }
         };
 
-        context.Users.Add(user);
-        await context.SaveChangesAsync();
+        var result = await userManager.CreateAsync(user, registerDto.Password);
 
-        return user.ToDto(tokenService);
+        if (!result.Succeeded)
+        {
+            foreach (var error in result.Errors)
+            {
+                ModelState.AddModelError("identity", error.Description);
+            }
+
+            return ValidationProblem();
+        }
+
+        await userManager.AddToRoleAsync(user, "Member"); //todo: loging the error if fails
+
+        await SetRefreshTokenCookie(user);
+
+        return await user.ToDtoAsync(tokenService);
     }
 
     [HttpPost("login")]
     public async Task<ActionResult<UserDto>> Login(LoginDto loginDto)
     {
-        var user = await context.Users.SingleOrDefaultAsync(x => x.Email == loginDto.Email.ToLower());
-        if (user == null) return Unauthorized("Invalid email");
+        var user = await userManager.FindByEmailAsync(loginDto.Email.ToLower());
+        if (user == null) return Unauthorized("Invalid email"); // todo: avoid giving hints
 
-        using var hmac = new HMACSHA512(user.PasswordSalt);
+        var result = await userManager.CheckPasswordAsync(user, loginDto.Password);
+        if (!result) return Unauthorized("Invalid password"); // todo: avoid giving hints
 
-        var computedHash = hmac.ComputeHash(Encoding.UTF8.GetBytes(loginDto.Password));
+        await SetRefreshTokenCookie(user);
 
-        for (var i = 0; i < computedHash.Length; i++)
+        return await user.ToDtoAsync(tokenService);
+    }
+
+    [HttpPost("refresh-token")]
+    public async Task<ActionResult<UserDto>> RefreshToken()
+    {
+        var refreshToken = Request.Cookies["refreshToken"];
+
+        if (string.IsNullOrEmpty(refreshToken)) return NoContent();        
+        // todo: add base validation for refresh token format
+
+        var user = await userManager.Users
+            .SingleOrDefaultAsync(u => u.RefreshToken == refreshToken);
+
+        if (user == null || user.RefreshTokenExpiryTime <= DateTime.Now)
         {
-            if (computedHash[i] != user.PasswordHash[i]) return Unauthorized("Invalid password");
+            return Unauthorized("Invalid or expired refresh token");
         }
 
-        return user.ToDto(tokenService);
-    } 
-    
-    private async Task<bool> EmailExists(string email)
+        await SetRefreshTokenCookie(user);
+
+        return await user.ToDtoAsync(tokenService);
+    }
+
+    private async Task SetRefreshTokenCookie(AppUser user)
     {
-        return await context.Users.AnyAsync(x => x.Email == email.ToLower());
+        var refreshToken = tokenService.GenerateRefreshToken();
+
+        user.RefreshToken = refreshToken;
+        user.RefreshTokenExpiryTime = DateTime.Now.AddDays(7);
+
+        await userManager.UpdateAsync(user);
+
+        var cookieOptions = new CookieOptions
+        {
+            HttpOnly = true,
+            Secure = true,
+            SameSite = SameSiteMode.Strict,
+            Expires = user.RefreshTokenExpiryTime
+        };
+
+        Response.Cookies.Append("refreshToken", refreshToken, cookieOptions);
     }
 
 }

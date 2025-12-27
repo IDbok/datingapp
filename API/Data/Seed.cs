@@ -2,15 +2,17 @@ using System.Security.Cryptography;
 using System.Text;
 using API.DTOs;
 using API.Entities;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.EntityFrameworkCore;
 
 namespace API.Data;
 
 public class Seed
 {
-    public static async Task SeedUsers(AppDbContext context)
+    public static async Task SeedUsers(UserManager<AppUser> userManager)
     {
-        if (context.Users.Any()) return;
+        if (await userManager.Users.AnyAsync()) return;
 
         var memberData = await File.ReadAllTextAsync("Data/UserSeedData.json");
         var members = System.Text.Json.JsonSerializer.Deserialize<List<SeedUserDto>>(memberData);
@@ -19,14 +21,12 @@ public class Seed
 
         foreach (var member in members)
         {
-            using var hmac = new HMACSHA512();
             var user = new AppUser
             {
                 Id = member.Id,
                 DisplayName = member.DisplayName,
                 Email = member.Email.ToLower(),
-                PasswordHash = hmac.ComputeHash(Encoding.UTF8.GetBytes("Pa$$w0rd")),
-                PasswordSalt = hmac.Key,
+                UserName = member.Email.ToLower(),
                 ImageUrl = member.ImageUrl,
                 Member = new Member
                 {
@@ -52,10 +52,26 @@ public class Seed
                 });
             }
 
-            context.Users.Add(user);
+            var result = await userManager.CreateAsync(user, "Pa$$w0rd");
+
+            if (!result.Succeeded)
+            {
+                Console.WriteLine($"Failed to create user {member.Email}: {string.Join(", ", result.Errors.Select(e => e.Description))}");
+            }
+
+            await userManager.AddToRoleAsync(user, "Member");
         }
 
-        await context.SaveChangesAsync();
+        var admin = new AppUser
+        {
+            DisplayName = "Admin",
+            Email = "admin@example.com",
+            UserName = "Admin"
+        };
+
+        await userManager.CreateAsync(admin, "Pa$$w0rd");
+        await userManager.AddToRolesAsync(admin, ["Admin", "Moderator"]);
+
         System.Console.WriteLine("Seeded users and members to the database");
     }
 

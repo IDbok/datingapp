@@ -13,9 +13,10 @@
     </div>
     <nav class="flex gap-3 my-2 uppercase text-tg text-white">
       @if (accountService.currentUser()) {
-      <a routerLink="/members" routerLinkActive="text-accent" [routerLinkActiveOptions]="{ exact: true }">Matches</a>
-      <a routerLink="/lists" routerLinkActive="text-accent" [routerLinkActiveOptions]="{ exact: true }">Lists</a>
-      <a routerLink="/messages" routerLinkActive="text-accent" [routerLinkActiveOptions]="{ exact: true }">Messages</a>
+        <a routerLink="/members" routerLinkActive="text-accent" [routerLinkActiveOptions]="{ exact: true }">Matches</a>
+        <a routerLink="/lists" routerLinkActive="text-accent" [routerLinkActiveOptions]="{ exact: true }">Lists</a>
+        <a routerLink="/messages" routerLinkActive="text-accent" [routerLinkActiveOptions]="{ exact: true }">Messages</a>
+        <a *appHasRole="['Admin', 'Moderator']" routerLink="/admin" routerLinkActive="text-accent" [routerLinkActiveOptions]="{ exact: true }">Admin</a>
       }
       <a routerLink="/errors" routerLinkActive="text-accent">Errors</a>
     </nav>
