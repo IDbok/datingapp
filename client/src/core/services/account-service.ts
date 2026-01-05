@@ -63,7 +63,7 @@ export class AccountService {
           this.logout();
         }
       });
-    }, 5*60*1000)
+    }, 7 * 24 * 60 * 1000) // todo: make configurable
   }
 
   setCurrentUser(user: User) {
